@@ -3,7 +3,6 @@ module Thot.Json.Decode
 open Fable.Core
 open Fable.Core.JsInterop
 open Fable.Import
-open System.Net.Http
 
 module Helpers =
 
@@ -24,6 +23,9 @@ module Helpers =
 
     [<Emit("isFinite($0) && !($0 % 1)")>]
     let isIntFinite (_: obj) : bool = jsNative
+
+    [<Emit("($0 instanceof Array)")>]
+    let isArray (_: obj) : bool = jsNative
 
     [<Emit("($0 !== undefined)")>]
     let isDefined (_: obj) : bool = jsNative
@@ -60,6 +62,10 @@ let unwrap (decoder : Decoder<'T>) (value : obj) : 'T =
     | Error error ->
         failwith (errorToString error)
 
+///////////////
+// Runners ///
+/////////////
+
 let decode (decoder : Decoder<'T>) (value : obj) : Result<'T, string> =
     try
         match decoder value with
@@ -77,6 +83,10 @@ let decodeString (decoder : Decoder<'T>) (value : string) : Result<'T, string> =
     with
         | ex ->
             Error("Given an invalid JSON: " + ex.Message)
+
+//////////////////
+// Primitives ///
+////////////////
 
 let string (value: obj) : Result<string, DecoderError> =
     if Helpers.isString value then
@@ -111,6 +121,11 @@ let float (value: obj) : Result<float, DecoderError> =
     else
         BadPrimitive("a float", value) |> Error
 
+/////////////////////////
+// Object primitives ///
+///////////////////////
+
+
 let field (fieldName: string) (decoder : Decoder<'value>) (value: obj) : Result<'value, DecoderError> =
     let fieldValue = value?(fieldName)
     if Helpers.isDefined fieldValue then
@@ -119,14 +134,24 @@ let field (fieldName: string) (decoder : Decoder<'value>) (value: obj) : Result<
         BadField ("an object with a field named `" + fieldName + "`", value)
         |> Error
 
+//////////////////////
+// Data structure ///
+////////////////////
+
 // let nullable (d1: Decoder<'value>) : Resul<'value option, DecoderError> =
+
+//////////////////////////////
+// Inconsistent Structure ///
+////////////////////////////
 
 let optional (d1 : Decoder<'value>) (value: obj) :Result<'value option, DecoderError> =
     match decode d1 value with
     | Ok v -> Ok (Some v)
     | Error _ -> Ok None
 
-// Map functions
+/////////////////////
+// Map functions ///
+///////////////////
 
 let map ctor d1 =
     (fun value ->
@@ -134,7 +159,10 @@ let map ctor d1 =
         Ok (ctor t)
     )
 
-let map2 ctor d1 d2 =
+let map2 (ctor : 'a -> 'b -> 'value)
+         (d1 : Decoder<'a>)
+         (d2 : Decoder<'b>) : Decoder<'value> =
+
     (fun value ->
         let t = unwrap d1 value
         let t2 = unwrap d2 value
@@ -142,7 +170,11 @@ let map2 ctor d1 d2 =
         Ok (ctor t t2)
     )
 
-let map3 ctor d1 d2 d3 =
+let map3 (ctor : 'a -> 'b -> 'c -> 'value)
+         (d1 : Decoder<'a>)
+         (d2 : Decoder<'b>)
+         (d3 : Decoder<'c>) : Decoder<'value> =
+
     (fun value ->
         let v1 = unwrap d1 value
         let v2 = unwrap d2 value
@@ -151,7 +183,12 @@ let map3 ctor d1 d2 d3 =
         Ok (ctor v1 v2 v3)
     )
 
-let map4 ctor d1 d2 d3 d4 =
+let map4 (ctor : 'a -> 'b -> 'c -> 'd -> 'value)
+         (d1 : Decoder<'a>)
+         (d2 : Decoder<'b>)
+         (d3 : Decoder<'c>)
+         (d4 : Decoder<'d>) : Decoder<'value> =
+
     (fun value ->
         let v1 = unwrap d1 value
         let v2 = unwrap d2 value
@@ -161,7 +198,13 @@ let map4 ctor d1 d2 d3 d4 =
         Ok (ctor v1 v2 v3 v4)
     )
 
-let map5 ctor d1 d2 d3 d4 d5=
+let map5 (ctor : 'a -> 'b -> 'c -> 'd -> 'e -> 'value)
+         (d1 : Decoder<'a>)
+         (d2 : Decoder<'b>)
+         (d3 : Decoder<'c>)
+         (d4 : Decoder<'d>)
+         (d5 : Decoder<'e>) : Decoder<'value> =
+
     (fun value ->
         let v1 = unwrap d1 value
         let v2 = unwrap d2 value
@@ -172,7 +215,14 @@ let map5 ctor d1 d2 d3 d4 d5=
         Ok (ctor v1 v2 v3 v4 v5)
     )
 
-let map6 ctor d1 d2 d3 d4 d5 d6 =
+let map6 (ctor : 'a -> 'b -> 'c -> 'd -> 'e -> 'f -> 'value)
+         (d1 : Decoder<'a>)
+         (d2 : Decoder<'b>)
+         (d3 : Decoder<'c>)
+         (d4 : Decoder<'d>)
+         (d5 : Decoder<'e>)
+         (d6 : Decoder<'f>) : Decoder<'value> =
+
     (fun value ->
         let v1 = unwrap d1 value
         let v2 = unwrap d2 value
@@ -184,7 +234,14 @@ let map6 ctor d1 d2 d3 d4 d5 d6 =
         Ok (ctor v1 v2 v3 v4 v5 v6)
     )
 
-let map7 ctor d1 d2 d3 d4 d5 d6 d7 =
+let map7 (ctor : 'a -> 'b -> 'c -> 'd -> 'e -> 'f -> 'g -> 'value)
+         (d1 : Decoder<'a>)
+         (d2 : Decoder<'b>)
+         (d3 : Decoder<'c>)
+         (d4 : Decoder<'d>)
+         (d5 : Decoder<'e>)
+         (d6 : Decoder<'f>)
+         (d7 : Decoder<'g>) : Decoder<'value> =
     (fun value ->
         let v1 = unwrap d1 value
         let v2 = unwrap d2 value
@@ -197,8 +254,16 @@ let map7 ctor d1 d2 d3 d4 d5 d6 d7 =
         Ok (ctor v1 v2 v3 v4 v5 v6 v7)
     )
 
+let map8 (ctor : 'a -> 'b -> 'c -> 'd -> 'e -> 'f -> 'g -> 'h -> 'value)
+         (d1 : Decoder<'a>)
+         (d2 : Decoder<'b>)
+         (d3 : Decoder<'c>)
+         (d4 : Decoder<'d>)
+         (d5 : Decoder<'e>)
+         (d6 : Decoder<'f>)
+         (d7 : Decoder<'g>)
+         (d8 : Decoder<'h>) : Decoder<'value> =
 
-let map8 ctor d1 d2 d3 d4 d5 d6 d7 d8 =
     (fun value ->
         let v1 = unwrap d1 value
         let v2 = unwrap d2 value
