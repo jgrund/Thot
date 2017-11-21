@@ -167,14 +167,14 @@ describe "Decode" <| fun _ ->
             Assert.AreEqual(expected, actual)
 
         it "an invalid int [invalid range] output an error (too low)" <| fun _ ->
-            let expected = Error("Expecting an int but instead got: 2147483648. Reason: Invalid range")
+            let expected = Error("Expecting an int but instead got:\n2147483648. Reason: Invalid range")
             let actual =
                 decodeString int "2147483648"
 
             Assert.AreEqual(expected, actual)
 
         it "an invalid int [invalid range] output an error (too higth)" <| fun _ ->
-            let expected = Error("Expecting an int but instead got: -2147483648. Reason: Invalid range")
+            let expected = Error("Expecting an int but instead got:\n-2147483648. Reason: Invalid range")
             let actual =
                 decodeString int "-2147483648"
 
@@ -182,18 +182,42 @@ describe "Decode" <| fun _ ->
 
     describe "Data structure" <| fun _ ->
 
-        // it "nullable works" <| fun _ ->
-        //     let expected = Ok({a = 1.; b = 2.} : Record2)
+        it "list works" <| fun _ ->
+            let expected = Ok([1; 2; 3])
 
-        //     let decodePoint =
-        //         map2 Record2.Create
-        //             (field "a" float)
-        //             (field "b" float)
+            let actual =
+                decodeString (list int) "[1, 2, 3]"
 
-        //     let actual =
-        //         decodeString decodePoint jsonRecord
+            Assert.AreEqual(expected, actual)
 
-        //     Assert.AreEqual(expected, actual)
+        it "an invalid list output an error" <| fun _ ->
+            let expected = Error("Expecting a list but instead got:\n1")
+
+            let actual =
+                decodeString (list int) "1"
+
+            Assert.AreEqual(expected, actual)
+
+        it "array works" <| fun _ ->
+            // Need to pass by a list otherwise Fable use:
+            // new Int32Array([1, 2, 3]) and the test fails
+            // And this would give:
+            // Expected: Result { tag: 0, data: Int32Array [ 1, 2, 3 ] }
+            // Actual: Result { tag: 0, data: [ 1, 2, 3 ] }
+            let expected = Ok([1; 2; 3] |> List.toArray)
+
+            let actual =
+                decodeString (array int) "[1, 2, 3]"
+
+            Assert.AreEqual(expected, actual)
+
+        it "an invalid array output an error" <| fun _ ->
+            let expected = Error("Expecting an array but instead got:\n1")
+
+            let actual =
+                decodeString (array int) "1"
+
+            Assert.AreEqual(expected, actual)
 
     describe "Inconsistent structure" <| fun _ ->
 
@@ -218,18 +242,50 @@ describe "Decode" <| fun _ ->
 
             Assert.AreEqual(expectedMissingField, actualMissingField)
 
-            let expectedFieldAndThenOptional = Error("Expecting an object with a field named `height` but instead got: {\"name\":\"maxime\",\"age\":25}")
+            let expectedFieldAndThenOptional =
+                Error(
+                    """
+Expecting an object with a field named `height` but instead got:
+{
+    "name": "maxime",
+    "age": 25
+}
+                    """.Trim())
             let actualFieldAndThenOptional =
                 decodeString (field "height" (optional float)) json
 
             Assert.AreEqual(expectedFieldAndThenOptional, actualFieldAndThenOptional)
 
-        it "optional works" <| fun _ ->
-            let expected = Ok(Some "maxime")
-            let json = """{ "name": "maxime", "age": 25 }"""
+    describe "Object primitives" <| fun _ ->
+
+        it "at works" <| fun _ ->
+            let expected = Ok("maxime")
 
             let actual =
-                decodeString (optional (field "name" string) ) json
+                decodeString
+                    (at [ "user"; "name" ] string)
+                    """{ "user" : { "name": "maxime", "age": 25 } }"""
+
+            Assert.AreEqual(expected, actual)
+
+        it "at output an error if the paths is broken" <| fun _ ->
+            let expected =
+                Error(
+                    """
+Expecting an object with path `user.maxime` but instead got:
+{
+    "user": {
+        "name": "maxime",
+        "age": 25
+    }
+}
+Node `maxime` is unkown.
+                    """.Trim())
+
+            let actual =
+                decodeString
+                    (at [ "user"; "maxime" ] string)
+                    """{ "user" : { "name": "maxime", "age": 25 } }"""
 
             Assert.AreEqual(expected, actual)
 

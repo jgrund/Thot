@@ -30,8 +30,9 @@ module Helpers =
     [<Emit("($0 !== undefined)")>]
     let isDefined (_: obj) : bool = jsNative
 
-    [<Emit("JSON.stringify($0) + ''")>]
+    [<Emit("JSON.stringify($0, null, 4)")>]
     let anyToString (_: obj) : string= jsNative
+
 
 type PrimitiveError =
     { Msg : string
@@ -44,7 +45,7 @@ type DecoderError =
 
 type Decoder<'T> = obj -> Result<'T, DecoderError>
 
-let inline genericMsg msg value = "Expecting " + msg + " but instead got: " + (Helpers.anyToString value)
+let inline genericMsg msg value = "Expecting " + msg + " but instead got:\n" + (Helpers.anyToString value)
 
 let errorToString =
     function
@@ -134,11 +135,43 @@ let field (fieldName: string) (decoder : Decoder<'value>) (value: obj) : Result<
         BadField ("an object with a field named `" + fieldName + "`", value)
         |> Error
 
+let at (fields: string list) (decoder : Decoder<'value>) (value: obj) : Result<'value, DecoderError> =
+    let mutable temp = value
+    for current in fields do
+        let curValue = temp?(current)
+        if Helpers.isDefined curValue then
+            temp <- curValue
+        else
+            let msg = "an object with path `" + (String.concat "." fields) + "`"
+            let extraMsg = "\nNode `" + current + "` is unkown."
+
+            failwith ((genericMsg msg value) + extraMsg)
+
+    decoder temp
+
+
 //////////////////////
 // Data structure ///
 ////////////////////
 
-// let nullable (d1: Decoder<'value>) : Resul<'value option, DecoderError> =
+let list (decoder : Decoder<'value>) (value: obj) : Result<'value list, DecoderError> =
+    if Helpers.isArray value then
+        unbox<obj array> value
+        |> Array.map (unwrap decoder)
+        |> Array.toList
+        |> Ok
+    else
+        BadPrimitive ("a list", value)
+        |> Error
+
+let array (decoder : Decoder<'value>) (value: obj) : Result<'value array, DecoderError> =
+    if Helpers.isArray value then
+        unbox<obj array> value
+        |> Array.map (unwrap decoder)
+        |> Ok
+    else
+        BadPrimitive ("an array", value)
+        |> Error
 
 //////////////////////////////
 // Inconsistent Structure ///
